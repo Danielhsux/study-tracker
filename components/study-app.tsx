@@ -13,7 +13,7 @@ import {
   Search, Settings2, ShieldCheck, Sparkles, Sunrise, Target, TimerReset, Trophy,
   Trash2, UserRound, Zap, Download, Upload,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -45,6 +45,7 @@ type Account = {
 };
 
 type Goals = { daily: number; weekly: number; monthly: number };
+type JourneyAnimation = { key: string; fromKm: number; toKm: number; addedKm: number; subject: string };
 type AchievementMetric = "hours" | "streak" | "sessions" | "early" | "late";
 type AchievementDefinition = {
   id: string;
@@ -808,7 +809,12 @@ function GoalsPage({ sessions, goals, onChange }: { sessions: Session[]; goals: 
   );
 }
 
-function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account: Account }) {
+function TaiwanJourneyPage({ sessions, account, animation, onAnimationComplete }: {
+  sessions: Session[];
+  account: Account;
+  animation: JourneyAnimation | null;
+  onAnimationComplete: () => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const totals = getSessionTotals(sessions);
   const earnedKm = totals.total / 60;
@@ -826,7 +832,12 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
     const canvas = canvasRef.current;
     if (!canvas) return;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const travelStartedAt = performance.now();
+    const canTravel = Boolean(animation && animation.toKm > animation.fromKm && !reduceMotion);
+    let completionSent = false;
     let frameId = 0;
+
+    if (animation && reduceMotion) window.setTimeout(onAnimationComplete, 0);
 
     function paint(now = 0) {
       if (!canvas) return;
@@ -864,6 +875,58 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
       }));
       route.push(route[0]);
 
+      const segmentLengths = route.slice(1).map((point, index) => Math.hypot(point.x - route[index].x, point.y - route[index].y));
+      const totalLength = segmentLengths.reduce((sum, value) => sum + value, 0);
+      function pointAlongRoute(distance: number) {
+        let travelled = 0;
+        for (let index = 0; index < segmentLengths.length; index += 1) {
+          const length = segmentLengths[index];
+          if (travelled + length >= distance) {
+            const ratio = length ? (distance - travelled) / length : 0;
+            return {
+              x: route[index].x + (route[index + 1].x - route[index].x) * ratio,
+              y: route[index].y + (route[index + 1].y - route[index].y) * ratio,
+            };
+          }
+          travelled += length;
+        }
+        return route[route.length - 1];
+      }
+
+      const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+      const ease = (value: number) => 1 - Math.pow(1 - clamp01(value), 3);
+      const elapsed = Math.max(0, now - travelStartedAt);
+      const fromRatio = animation ? clamp01(animation.fromKm / TAIWAN_LOOP_KM) : progressRatio;
+      const toRatio = animation ? clamp01(animation.toKm / TAIWAN_LOOP_KM) : progressRatio;
+      let displayedRatio = progressRatio;
+      let cameraZoom = 1;
+      let cameraPan = 0;
+      if (canTravel) {
+        if (elapsed < 850) {
+          const phase = ease(elapsed / 850);
+          displayedRatio = fromRatio;
+          cameraZoom = 1 + phase * 5;
+          cameraPan = phase;
+        } else if (elapsed < 3150) {
+          const phase = ease((elapsed - 850) / 2300);
+          displayedRatio = fromRatio + (toRatio - fromRatio) * phase;
+          cameraZoom = 6;
+          cameraPan = 1;
+        } else if (elapsed < 4400) {
+          const phase = ease((elapsed - 3150) / 1250);
+          displayedRatio = toRatio;
+          cameraZoom = 6 - phase * 5;
+          cameraPan = 1 - phase;
+        } else {
+          displayedRatio = toRatio;
+        }
+      }
+      const travelMarker = pointAlongRoute(totalLength * displayedRatio);
+      const cameraFocus = {
+        x: islandCenter.x + (travelMarker.x - islandCenter.x) * cameraPan,
+        y: islandCenter.y + (travelMarker.y - islandCenter.y) * cameraPan,
+      };
+
       const glowX = width * (.5 + Math.sin(time / 3200) * .025);
       const glowY = height * (.46 + Math.cos(time / 3800) * .018);
       const backgroundGlow = context.createRadialGradient(glowX, glowY, 20, glowX, glowY, Math.min(width, height) * .5);
@@ -895,6 +958,11 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
       }
       context.restore();
 
+      context.save();
+      context.translate(width * .5, height * .5);
+      context.scale(cameraZoom, cameraZoom);
+      context.translate(-cameraFocus.x, -cameraFocus.y);
+
       context.beginPath();
       outline.forEach((point, index) => index ? context.lineTo(point.x, point.y) : context.moveTo(point.x, point.y));
       context.closePath();
@@ -904,11 +972,11 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
       islandFill.addColorStop(1, "rgba(101,217,154,.08)");
       context.fillStyle = islandFill;
       context.shadowColor = "rgba(101,211,255,.14)";
-      context.shadowBlur = 28;
+      context.shadowBlur = 28 / cameraZoom;
       context.fill();
       context.shadowBlur = 0;
       context.strokeStyle = `rgba(183,229,255,${.15 + (Math.sin(time / 1400) + 1) * .035})`;
-      context.lineWidth = 1.5;
+      context.lineWidth = 1.5 / cameraZoom;
       context.lineJoin = "round";
       context.stroke();
 
@@ -920,7 +988,7 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
       context.moveTo(ridgeStart.x, ridgeStart.y);
       context.bezierCurveTo(ridgeControlA.x, ridgeControlA.y, ridgeControlB.x, ridgeControlB.y, ridgeEnd.x, ridgeEnd.y);
       context.strokeStyle = "rgba(255,255,255,.07)";
-      context.lineWidth = 8;
+      context.lineWidth = 8 / cameraZoom;
       context.lineCap = "round";
       context.stroke();
 
@@ -932,20 +1000,18 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
       };
       drawWholeRoute();
       context.strokeStyle = "rgba(4,5,9,.9)";
-      context.lineWidth = 9;
+      context.lineWidth = 9 / cameraZoom;
       context.stroke();
       drawWholeRoute();
-      context.setLineDash([5, 8]);
-      context.lineDashOffset = -time * .018;
+      context.setLineDash([5 / cameraZoom, 8 / cameraZoom]);
+      context.lineDashOffset = -time * .018 / cameraZoom;
       context.strokeStyle = "rgba(255,255,255,.18)";
-      context.lineWidth = 2;
+      context.lineWidth = 2 / cameraZoom;
       context.stroke();
       context.setLineDash([]);
       context.lineDashOffset = 0;
 
-      const segmentLengths = route.slice(1).map((point, index) => Math.hypot(point.x - route[index].x, point.y - route[index].y));
-      const totalLength = segmentLengths.reduce((sum, value) => sum + value, 0);
-      let remainingLength = totalLength * progressRatio;
+      let remainingLength = totalLength * displayedRatio;
       let marker = route[0];
       context.beginPath();
       context.moveTo(route[0].x, route[0].y);
@@ -965,35 +1031,20 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
         }
       }
       context.strokeStyle = "#9c8fff";
-      context.lineWidth = 5;
+      context.lineWidth = 5 / cameraZoom;
       context.shadowColor = "rgba(139,124,246,.75)";
       context.shadowBlur = 13;
       context.stroke();
       context.shadowBlur = 0;
 
-      const completedLength = totalLength * progressRatio;
-      function pointAlongRoute(distance: number) {
-        let travelled = 0;
-        for (let index = 0; index < segmentLengths.length; index += 1) {
-          const length = segmentLengths[index];
-          if (travelled + length >= distance) {
-            const ratio = length ? (distance - travelled) / length : 0;
-            return {
-              x: route[index].x + (route[index + 1].x - route[index].x) * ratio,
-              y: route[index].y + (route[index + 1].y - route[index].y) * ratio,
-            };
-          }
-          travelled += length;
-        }
-        return route[route.length - 1];
-      }
+      const completedLength = totalLength * displayedRatio;
 
       if (completedLength > 4) {
         for (let index = 0; index < 3; index += 1) {
           const phase = ((time / 2600) + index / 3) % 1;
           const particle = pointAlongRoute(completedLength * phase);
           context.beginPath();
-          context.arc(particle.x, particle.y, 1.5 + phase * 1.3, 0, Math.PI * 2);
+          context.arc(particle.x, particle.y, (1.5 + phase * 1.3) / cameraZoom, 0, Math.PI * 2);
           context.fillStyle = `rgba(207,202,255,${.25 + phase * .55})`;
           context.shadowColor = "rgba(139,124,246,.9)";
           context.shadowBlur = 8;
@@ -1005,18 +1056,18 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
       for (let index = 0; index < 2; index += 1) {
         const pulse = ((time / 1700) + index / 2) % 1;
         context.beginPath();
-        context.arc(marker.x, marker.y, 9 + pulse * 17, 0, Math.PI * 2);
+        context.arc(marker.x, marker.y, (9 + pulse * 17) / cameraZoom, 0, Math.PI * 2);
         context.strokeStyle = `rgba(156,143,255,${(1 - pulse) * .38})`;
-        context.lineWidth = 1.5;
+        context.lineWidth = 1.5 / cameraZoom;
         context.stroke();
       }
 
       context.beginPath();
-      context.arc(marker.x, marker.y, 8, 0, Math.PI * 2);
+      context.arc(marker.x, marker.y, 8 / cameraZoom, 0, Math.PI * 2);
       context.fillStyle = "#ffffff";
       context.fill();
       context.beginPath();
-      context.arc(marker.x, marker.y, 4, 0, Math.PI * 2);
+      context.arc(marker.x, marker.y, 4 / cameraZoom, 0, Math.PI * 2);
       context.fillStyle = "#8b7cf6";
       context.fill();
 
@@ -1024,16 +1075,39 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
         ["臺北", 121.565, 25.033], ["宜蘭", 121.753, 24.757], ["花蓮", 121.606, 23.991], ["臺東", 121.147, 22.755], ["屏東", 120.744, 22.000],
         ["高雄", 120.301, 22.627], ["臺南", 120.205, 22.993], ["嘉義", 120.449, 23.480], ["臺中", 120.674, 24.147], ["新竹", 120.964, 24.804],
       ] as Array<[string, number, number]>;
-      context.font = "600 10px system-ui, sans-serif";
+      context.font = `600 ${10 / cameraZoom}px system-ui, sans-serif`;
       cities.forEach(([name, longitude, latitude]) => {
         const point = toPoint([longitude, latitude]);
         context.beginPath();
-        context.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
+        context.arc(point.x, point.y, 2.5 / cameraZoom, 0, Math.PI * 2);
         context.fillStyle = "rgba(255,255,255,.75)";
         context.fill();
         context.fillStyle = "rgba(220,223,233,.72)";
-        context.fillText(name, point.x + 7, point.y + 3);
+        context.fillText(name, point.x + 7 / cameraZoom, point.y + 3 / cameraZoom);
       });
+      context.restore();
+
+      if (canTravel && elapsed < 4400) {
+        const markerScreen = {
+          x: width * .5 + (travelMarker.x - cameraFocus.x) * cameraZoom,
+          y: height * .5 + (travelMarker.y - cameraFocus.y) * cameraZoom,
+        };
+        const walking = elapsed >= 850 && elapsed < 3150;
+        const bounce = walking ? Math.abs(Math.sin(time / 105)) * 5 : 0;
+        context.beginPath();
+        context.ellipse(markerScreen.x, markerScreen.y + 12, 14, 4, 0, 0, Math.PI * 2);
+        context.fillStyle = "rgba(0,0,0,.3)";
+        context.fill();
+        context.font = "24px system-ui, sans-serif";
+        context.textAlign = "center";
+        context.fillText("🚶", markerScreen.x, markerScreen.y - 8 - bounce);
+        context.textAlign = "start";
+      }
+
+      if (canTravel && elapsed >= 4400 && !completionSent) {
+        completionSent = true;
+        window.setTimeout(onAnimationComplete, 0);
+      }
     }
 
     function animate(now: number) {
@@ -1041,21 +1115,21 @@ function TaiwanJourneyPage({ sessions, account }: { sessions: Session[]; account
       frameId = window.requestAnimationFrame(animate);
     }
 
-    paint();
+    paint(performance.now());
     if (!reduceMotion) frameId = window.requestAnimationFrame(animate);
-    const observer = new ResizeObserver(() => reduceMotion && paint());
+    const observer = new ResizeObserver(() => reduceMotion && paint(performance.now()));
     observer.observe(canvas);
     return () => {
       observer.disconnect();
       if (frameId) window.cancelAnimationFrame(frameId);
     };
-  }, [progressRatio]);
+  }, [progressRatio, animation?.key, onAnimationComplete]);
 
   return (
     <div className="journey-layout">
       <Card className="journey-map-card">
         <div className="card-heading"><div><h2 className="card-title">臺灣環島一號線</h2><p className="card-subtitle">從臺北出發，順時針累積你的讀書里程</p></div><span className="journey-rule"><Clock3 size={12} />1 小時 = 1 公里</span></div>
-        <div className="taiwan-canvas-wrap"><div className="journey-pass"><div className="journey-pass-avatar">{account.displayName.slice(0, 1).toUpperCase()}</div><div><span>環島旅人</span><strong>{account.displayName}</strong><small>Lv.{journeyLevel} · {journeyTitle}</small></div></div><span className="map-data-source">真實海岸線 · Natural Earth</span><canvas ref={canvasRef} className="taiwan-canvas" role="img" aria-label={`臺灣環島進度，已完成 ${progressKm.toFixed(1)} 公里`}><span>臺灣環島進度</span></canvas><div className="journey-location"><Navigation size={15} /><div><span>目前位置</span><strong>{progressKm >= TAIWAN_LOOP_KM ? "完成環島" : `${currentStage.city} → ${nextStage.city}`}</strong><small>{progressKm >= TAIWAN_LOOP_KM ? "恭喜回到臺北" : `這一段已完成 ${Math.max(0, segmentPercent)}%`}</small></div></div></div>
+        <div className="taiwan-canvas-wrap"><div className="journey-pass"><div className="journey-pass-avatar">{account.displayName.slice(0, 1).toUpperCase()}</div><div><span>環島旅人</span><strong>{account.displayName}</strong><small>Lv.{journeyLevel} · {journeyTitle}</small></div></div><span className="map-data-source">真實海岸線 · Natural Earth</span>{animation && <motion.div key={animation.key} className="journey-travel-status" initial={{ opacity: 0, y: 10, scale: .94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: .35 }}><span><Navigation size={10} />本次新增里程</span><strong>+{animation.addedKm.toFixed(1)} 公里</strong><small>{animation.subject}已存檔 · 正在前進</small></motion.div>}<canvas ref={canvasRef} className="taiwan-canvas" role="img" aria-label={`臺灣環島進度，已完成 ${progressKm.toFixed(1)} 公里`}><span>臺灣環島進度</span></canvas><div className="journey-location"><Navigation size={15} /><div><span>目前位置</span><strong>{progressKm >= TAIWAN_LOOP_KM ? "完成環島" : `${currentStage.city} → ${nextStage.city}`}</strong><small>{progressKm >= TAIWAN_LOOP_KM ? "恭喜回到臺北" : `這一段已完成 ${Math.max(0, segmentPercent)}%`}</small></div></div></div>
         <div className="journey-main-progress"><div className="journey-progress-copy"><span>環島完成率</span><strong>{Math.round(progressRatio * 100)}%</strong></div><div className="progress-track"><motion.div className="progress-fill" initial={{ width: 0 }} animate={{ width: `${progressRatio * 100}%` }} /></div><div className="journey-scale"><span>臺北 · 0 公里</span><span>臺北 · {TAIWAN_LOOP_KM} 公里</span></div></div>
       </Card>
 
@@ -1216,6 +1290,7 @@ export function StudyApp() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [goals, setGoals] = useState<Goals>({ daily: 120, weekly: 600, monthly: 2400 });
   const [achievementDefinitions, setAchievementDefinitions] = useState<AchievementDefinition[]>(DEFAULT_ACHIEVEMENTS);
+  const [journeyAnimation, setJourneyAnimation] = useState<JourneyAnimation | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -1292,6 +1367,7 @@ export function StudyApp() {
   function auth(user: Account, demo = false) {
     setAccount(user);
     loadAccountData(user, demo);
+    setJourneyAnimation(null);
     setPage("dashboard");
   }
 
@@ -1302,9 +1378,15 @@ export function StudyApp() {
   }
 
   function addSession(session: Session) {
+    const fromKm = Math.min(TAIWAN_LOOP_KM, getSessionTotals(sessions).total / 60);
+    const toKm = Math.min(TAIWAN_LOOP_KM, fromKm + session.minutes / 60);
     saveSessions([session, ...sessions]);
+    setJourneyAnimation({ key: session.id, fromKm, toKm, addedKm: session.minutes / 60, subject: session.subject });
+    setPage("journey");
     toast.success("專注完成，讀書紀錄已保存", { description: `${session.subject} · ${formatMinutes(session.minutes)}` });
   }
+
+  const finishJourneyAnimation = useCallback(() => setJourneyAnimation(null), []);
 
   function updateGoals(next: Goals) {
     if (!account) return;
@@ -1321,6 +1403,7 @@ export function StudyApp() {
     localStorage.removeItem(SESSION_KEY);
     setAccount(null);
     setSessions([]);
+    setJourneyAnimation(null);
   }
 
   const pageView = useMemo(() => {
@@ -1330,11 +1413,11 @@ export function StudyApp() {
     if (page === "records") return <RecordsPage sessions={sessions} onAdd={addSession} onDelete={(id) => saveSessions(sessions.filter((item) => item.id !== id))} />;
     if (page === "analytics") return <AnalyticsPage sessions={sessions} />;
     if (page === "calendar") return <CalendarPage sessions={sessions} />;
-    if (page === "journey") return <TaiwanJourneyPage sessions={sessions} account={account} />;
+    if (page === "journey") return <TaiwanJourneyPage sessions={sessions} account={account} animation={journeyAnimation} onAnimationComplete={finishJourneyAnimation} />;
     if (page === "goals") return <GoalsPage sessions={sessions} goals={goals} onChange={updateGoals} />;
     if (page === "achievements") return <AchievementsPage sessions={sessions} definitions={achievementDefinitions} />;
     return <ProfilePage account={account} sessions={sessions} goals={goals} achievementDefinitions={achievementDefinitions} onAchievementsChange={updateAchievementDefinitions} onImport={(items, nextGoals) => { saveSessions(items); if (nextGoals) updateGoals(nextGoals); }} />;
-  }, [account, page, sessions, goals, achievementDefinitions]);
+  }, [account, page, sessions, goals, achievementDefinitions, journeyAnimation, finishJourneyAnimation]);
 
   if (!ready) return <LoadingScreen />;
   if (!account) return <AuthScreen onAuth={auth} />;
