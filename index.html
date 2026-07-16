@@ -56,6 +56,36 @@
     .brand strong { display: block; font-size: 19px; letter-spacing: .08em; }
     .brand small { color: var(--ink-soft); font-size: 12px; letter-spacing: .12em; }
     .date-pill { color: var(--ink-soft); font-size: 14px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.4); }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .user-chip { display: flex; align-items: center; gap: 9px; padding: 6px 7px 6px 9px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.55); }
+    .user-avatar { width: 31px; height: 31px; display: grid; place-items: center; color: white; border-radius: 10px; background: var(--green); font-weight: 800; }
+    .user-copy { min-width: 70px; }
+    .user-copy strong { display: block; max-width: 120px; overflow: hidden; text-overflow: ellipsis; font-size: 12px; white-space: nowrap; }
+    .user-copy small { display: block; color: var(--ink-soft); font-size: 10px; }
+    .logout-btn { padding: 7px 9px; color: var(--ink-soft); border: 0; border-radius: 9px; background: transparent; font-size: 12px; }
+    .logout-btn:hover { color: var(--ink); background: var(--mint); }
+
+    .auth-screen {
+      min-height: 100vh; display: grid; place-items: center; padding: 28px 18px;
+      background: radial-gradient(circle at 20% 10%, rgba(123,175,151,.22), transparent 30rem);
+    }
+    .auth-layout { width: min(860px, 100%); display: grid; grid-template-columns: 1fr 390px; overflow: hidden; border: 1px solid rgba(255,255,255,.75); border-radius: 32px; background: var(--paper); box-shadow: 0 28px 80px rgba(30,59,50,.14); backdrop-filter: blur(16px); }
+    .auth-intro { display: flex; flex-direction: column; justify-content: space-between; padding: 42px; color: white; background: linear-gradient(145deg, var(--green-dark), var(--green)); }
+    .auth-intro .brand-mark { background: rgba(255,255,255,.16); box-shadow: none; }
+    .auth-intro h1 { margin: 46px 0 14px; font-size: 47px; }
+    .auth-intro p { margin: 0; color: rgba(255,255,255,.74); font-size: 14px; }
+    .auth-intro small { margin-top: 48px; color: rgba(255,255,255,.55); font-size: 11px; }
+    .auth-card { padding: 38px 34px; }
+    .auth-card h2 { margin: 0 0 6px; font-size: 24px; }
+    .auth-lead { margin: 0 0 24px; color: var(--ink-soft); font-size: 13px; }
+    .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 23px; padding: 4px; border-radius: 13px; background: #edf1ed; }
+    .auth-tab { height: 37px; color: var(--ink-soft); border: 0; border-radius: 10px; background: transparent; font-size: 13px; font-weight: 700; }
+    .auth-tab.active { color: var(--ink); background: #fff; box-shadow: 0 3px 10px rgba(23,53,47,.08); }
+    .auth-submit { width: 100%; height: 48px; margin-top: 5px; color: white; border: 0; border-radius: 13px; background: var(--green); font-weight: 800; }
+    .auth-submit:hover { background: var(--green-dark); }
+    .auth-message { min-height: 20px; margin: 12px 0 0; color: #a23f35; text-align: center; font-size: 12px; }
+    .local-note { margin: 18px 0 0; padding-top: 16px; color: var(--ink-soft); border-top: 1px solid var(--line); font-size: 11px; text-align: center; }
+    [hidden] { display: none !important; }
 
     .hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 44px; align-items: center; margin-bottom: 32px; }
     .eyebrow { color: var(--green); font-size: 13px; font-weight: 800; letter-spacing: .18em; }
@@ -118,11 +148,16 @@
       .hero { grid-template-columns: 1fr; gap: 28px; }
       .hero-copy { max-width: 650px; }
       .content-grid { grid-template-columns: 1fr; }
+      .auth-layout { grid-template-columns: 1fr; max-width: 430px; }
+      .auth-intro { display: none; }
     }
     @media (max-width: 560px) {
       .shell { width: min(100% - 24px, 1160px); padding-top: 20px; }
       header { margin-bottom: 30px; }
-      .brand small, .date-pill { display: none; }
+      .brand small, .date-pill, .user-copy { display: none; }
+      .header-actions { gap: 5px; }
+      .user-chip { gap: 3px; padding-left: 6px; }
+      .auth-card { padding: 30px 22px; }
       h1 { font-size: 43px; }
       .hero-copy { font-size: 15px; }
       .entry-card { padding: 20px; border-radius: 22px; }
@@ -137,13 +172,58 @@
   </style>
 </head>
 <body>
-  <main class="shell">
+  <section class="auth-screen" id="authScreen" aria-labelledby="authTitle">
+    <div class="auth-layout">
+      <div class="auth-intro">
+        <div>
+          <div class="brand-mark" aria-hidden="true">跡</div>
+          <h1>讓努力，<br>留下足跡。</h1>
+          <p>建立你的本機學習空間，讓每個人的紀錄互不干擾。</p>
+        </div>
+        <small>資料僅保存在這台裝置的目前瀏覽器</small>
+      </div>
+      <div class="auth-card">
+        <h2 id="authTitle">歡迎回來</h2>
+        <p class="auth-lead" id="authLead">登入後繼續記錄今天的學習。</p>
+        <div class="auth-tabs" role="tablist" aria-label="帳號操作">
+          <button class="auth-tab active" id="loginTab" type="button" role="tab" aria-selected="true">登入</button>
+          <button class="auth-tab" id="registerTab" type="button" role="tab" aria-selected="false">建立帳號</button>
+        </div>
+        <form id="authForm">
+          <div class="field" id="displayNameField" hidden>
+            <label for="displayName">顯示名稱</label>
+            <input id="displayName" name="displayName" type="text" maxlength="20" placeholder="例如：小安" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="username">帳號</label>
+            <input id="username" name="username" type="text" minlength="3" maxlength="24" placeholder="請輸入至少 3 個字元" required autocomplete="username">
+          </div>
+          <div class="field">
+            <label for="password">密碼</label>
+            <input id="password" name="password" type="password" minlength="6" placeholder="請輸入至少 6 個字元" required autocomplete="current-password">
+          </div>
+          <button class="auth-submit" id="authSubmit" type="submit">登入讀書足跡</button>
+          <p class="auth-message" id="authMessage" role="status" aria-live="polite"></p>
+        </form>
+        <p class="local-note">本機帳號適合作品展示與個人使用，不具跨裝置同步功能。</p>
+      </div>
+    </div>
+  </section>
+
+  <main class="shell" id="appShell" hidden>
     <header>
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">跡</div>
         <div><strong>讀書足跡</strong><small>STUDY TRACE</small></div>
       </div>
-      <div class="date-pill" id="today"></div>
+      <div class="header-actions">
+        <div class="date-pill" id="today"></div>
+        <div class="user-chip">
+          <span class="user-avatar" id="userAvatar" aria-hidden="true">讀</span>
+          <span class="user-copy"><strong id="currentDisplayName"></strong><small id="currentUsername"></small></span>
+          <button class="logout-btn" id="logoutButton" type="button">登出</button>
+        </div>
+      </div>
     </header>
 
     <section class="hero">
@@ -198,19 +278,99 @@
   <div class="toast" id="toast" role="status" aria-live="polite">已新增一筆讀書足跡</div>
 
   <script>
-    const STORAGE_KEY = 'studyTraceRecords';
+    const ACCOUNTS_KEY = 'studyTraceAccountsV1';
+    const SESSION_KEY = 'studyTraceSessionV1';
+    const LEGACY_RECORDS_KEY = 'studyTraceRecords';
+    const LEGACY_MIGRATED_KEY = 'studyTraceLegacyMigratedV1';
     const form = document.getElementById('studyForm');
-    const records = loadRecords();
+    const authForm = document.getElementById('authForm');
+    let authMode = 'login';
+    let currentUser = null;
+    let records = [];
 
     document.getElementById('today').textContent = new Intl.DateTimeFormat('zh-TW', {
       year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'
     }).format(new Date());
 
-    function loadRecords() {
+    function readJson(key, fallback) {
       try {
-        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
-        return Array.isArray(data) ? data : [];
-      } catch { return []; }
+        const data = JSON.parse(localStorage.getItem(key));
+        return data ?? fallback;
+      } catch { return fallback; }
+    }
+
+    function getAccounts() {
+      const accounts = readJson(ACCOUNTS_KEY, []);
+      return Array.isArray(accounts) ? accounts : [];
+    }
+
+    function recordsKey(userId) {
+      return `studyTraceRecordsV1:${userId}`;
+    }
+
+    function loadRecords() {
+      const saved = readJson(recordsKey(currentUser.id), []);
+      records = Array.isArray(saved) ? saved : [];
+      const legacy = readJson(LEGACY_RECORDS_KEY, []);
+      if (!records.length && Array.isArray(legacy) && legacy.length && !localStorage.getItem(LEGACY_MIGRATED_KEY)) {
+        records = legacy;
+        saveRecords();
+        localStorage.setItem(LEGACY_MIGRATED_KEY, currentUser.id);
+      }
+    }
+
+    function saveRecords() {
+      localStorage.setItem(recordsKey(currentUser.id), JSON.stringify(records));
+    }
+
+    async function hashPassword(username, password) {
+      const value = `${username}:${password}:study-trace-v1`;
+      if (window.crypto?.subtle) {
+        const bytes = new TextEncoder().encode(value);
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+      }
+      let hash = 2166136261;
+      for (let i = 0; i < value.length; i++) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);
+      return `local-${(hash >>> 0).toString(16)}`;
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      const registering = mode === 'register';
+      document.getElementById('displayNameField').hidden = !registering;
+      document.getElementById('displayName').required = registering;
+      document.getElementById('password').autocomplete = registering ? 'new-password' : 'current-password';
+      document.getElementById('authTitle').textContent = registering ? '建立學習帳號' : '歡迎回來';
+      document.getElementById('authLead').textContent = registering ? '建立一個只屬於這台裝置的學習空間。' : '登入後繼續記錄今天的學習。';
+      document.getElementById('authSubmit').textContent = registering ? '建立帳號並開始' : '登入讀書足跡';
+      document.getElementById('loginTab').classList.toggle('active', !registering);
+      document.getElementById('registerTab').classList.toggle('active', registering);
+      document.getElementById('loginTab').setAttribute('aria-selected', String(!registering));
+      document.getElementById('registerTab').setAttribute('aria-selected', String(registering));
+      document.getElementById('authMessage').textContent = '';
+    }
+
+    function showApp(user) {
+      currentUser = user;
+      loadRecords();
+      document.getElementById('authScreen').hidden = true;
+      document.getElementById('appShell').hidden = false;
+      document.getElementById('currentDisplayName').textContent = user.displayName;
+      document.getElementById('currentUsername').textContent = `@${user.username}`;
+      document.getElementById('userAvatar').textContent = user.displayName.slice(0, 1).toUpperCase();
+      render();
+    }
+
+    function showAuth(message = '') {
+      currentUser = null;
+      records = [];
+      document.getElementById('appShell').hidden = true;
+      document.getElementById('authScreen').hidden = false;
+      authForm.reset();
+      setAuthMode('login');
+      document.getElementById('authMessage').textContent = message;
+      document.getElementById('username').focus();
     }
 
     function escapeHtml(text) {
@@ -271,7 +431,7 @@
       const focus = Number(data.get('focus'));
       if (!subject || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440 || focus < 1 || focus > 5) return;
       records.unshift({ id: Date.now(), subject, minutes, focus, createdAt: new Date().toISOString() });
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      saveRecords();
       form.reset();
       document.getElementById('focus3').checked = true;
       render();
@@ -281,7 +441,66 @@
       document.getElementById('subject').focus();
     });
 
-    render();
+    document.getElementById('loginTab').addEventListener('click', () => setAuthMode('login'));
+    document.getElementById('registerTab').addEventListener('click', () => setAuthMode('register'));
+
+    authForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const message = document.getElementById('authMessage');
+      const username = document.getElementById('username').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+      const displayName = document.getElementById('displayName').value.trim();
+      if (username.length < 3 || /\s/.test(username)) {
+        message.textContent = '帳號需至少 3 個字元，且不能包含空白。';
+        return;
+      }
+      if (password.length < 6) {
+        message.textContent = '密碼需至少 6 個字元。';
+        return;
+      }
+      const accounts = getAccounts();
+      const passwordHash = await hashPassword(username, password);
+      if (authMode === 'register') {
+        if (!displayName) {
+          message.textContent = '請輸入顯示名稱。';
+          return;
+        }
+        if (accounts.some(account => account.username === username)) {
+          message.textContent = '這個帳號已經有人使用。';
+          return;
+        }
+        const user = {
+          id: window.crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          username, displayName, passwordHash, createdAt: new Date().toISOString()
+        };
+        accounts.push(user);
+        localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+        localStorage.setItem(SESSION_KEY, user.id);
+        showApp(user);
+        return;
+      }
+      const user = accounts.find(account => account.username === username && account.passwordHash === passwordHash);
+      if (!user) {
+        message.textContent = '帳號或密碼不正確。';
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, user.id);
+      showApp(user);
+    });
+
+    document.getElementById('logoutButton').addEventListener('click', () => {
+      localStorage.removeItem(SESSION_KEY);
+      showAuth('已安全登出本機帳號。');
+    });
+
+    function initialize() {
+      const sessionId = localStorage.getItem(SESSION_KEY);
+      const user = getAccounts().find(account => account.id === sessionId);
+      if (user) showApp(user);
+      else showAuth();
+    }
+
+    initialize();
   </script>
 </body>
 </html>
