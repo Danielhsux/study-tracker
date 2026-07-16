@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+.pnpm-store
+.agents
+.codex
+outputs
+work
+.DS_Store
+*.log
