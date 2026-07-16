@@ -1330,6 +1330,11 @@ export function StudyApp() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  // 切換功能頁時回到頂端，避免從較長的紀錄表單跳到環島頁後仍停在頁面底部。
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [page]);
+
   useEffect(() => {
     if (!ready || !account) return;
     const welcomeKey = `studyTraceWelcome:${account.id}`;
