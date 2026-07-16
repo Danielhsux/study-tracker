@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="讀書足跡——為高中生設計的讀書紀錄與學習分析工具。">
+  <title>讀書足跡｜學習分析工具</title>
+  <style>
+    :root {
+      --ink: #17352f;
+      --ink-soft: #5b6f69;
+      --green: #1f6254;
+      --green-dark: #17483f;
+      --mint: #dbeae3;
+      --cream: #f4f1e9;
+      --paper: rgba(255, 255, 255, .84);
+      --line: rgba(23, 53, 47, .12);
+      --shadow: 0 18px 50px rgba(30, 59, 50, .09);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 6% 0%, rgba(123, 175, 151, .22), transparent 28rem),
+        radial-gradient(circle at 95% 18%, rgba(224, 196, 137, .18), transparent 24rem),
+        var(--cream);
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      line-height: 1.5;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .shell { width: min(1160px, calc(100% - 40px)); margin: 0 auto; padding: 36px 0 52px; }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 42px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-mark {
+      width: 44px; height: 44px; display: grid; place-items: center;
+      border-radius: 14px; color: white; background: var(--green);
+      box-shadow: 0 10px 24px rgba(31, 98, 84, .25);
+      font-family: Georgia, serif; font-weight: 700; font-size: 22px;
+    }
+    .brand strong { display: block; font-size: 19px; letter-spacing: .08em; }
+    .brand small { color: var(--ink-soft); font-size: 12px; letter-spacing: .12em; }
+    .date-pill { color: var(--ink-soft); font-size: 14px; padding: 9px 14px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255,255,255,.4); }
+
+    .hero { display: grid; grid-template-columns: 1.15fr .85fr; gap: 44px; align-items: center; margin-bottom: 32px; }
+    .eyebrow { color: var(--green); font-size: 13px; font-weight: 800; letter-spacing: .18em; }
+    h1 { margin: 12px 0 15px; font-family: Georgia, "Noto Serif TC", serif; font-size: clamp(42px, 6vw, 70px); line-height: 1.06; letter-spacing: -.035em; }
+    .hero-copy { max-width: 570px; margin: 0; color: var(--ink-soft); font-size: 17px; }
+
+    .entry-card, .panel, .stat-card { border: 1px solid rgba(255,255,255,.7); background: var(--paper); box-shadow: var(--shadow); backdrop-filter: blur(14px); }
+    .entry-card { padding: 25px; border-radius: 28px; }
+    .entry-card h2, .panel h2 { margin: 0; font-size: 18px; letter-spacing: .02em; }
+    .entry-card .hint { margin: 5px 0 21px; color: var(--ink-soft); font-size: 13px; }
+    .field { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 700; }
+    input, select {
+      width: 100%; height: 46px; padding: 0 13px; color: var(--ink); background: #fff;
+      border: 1px solid var(--line); border-radius: 12px; outline: none; transition: .2s;
+    }
+    input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(31,98,84,.11); }
+    .focus-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
+    .focus-row input { position: absolute; opacity: 0; pointer-events: none; }
+    .focus-row label { margin: 0; height: 42px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 11px; background: #fff; cursor: pointer; transition: .2s; }
+    .focus-row input:checked + label { color: white; border-color: var(--green); background: var(--green); box-shadow: 0 7px 16px rgba(31,98,84,.2); }
+    .submit-btn { width: 100%; height: 48px; margin-top: 5px; color: white; font-weight: 800; letter-spacing: .05em; border: 0; border-radius: 13px; background: var(--green); transition: transform .2s, background .2s; }
+    .submit-btn:hover { background: var(--green-dark); transform: translateY(-1px); }
+
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 16px; }
+    .stat-card { padding: 22px; border-radius: var(--radius); }
+    .stat-top { display: flex; justify-content: space-between; align-items: center; color: var(--ink-soft); font-size: 13px; }
+    .stat-icon { width: 31px; height: 31px; display: grid; place-items: center; color: var(--green); border-radius: 10px; background: var(--mint); font-weight: 900; }
+    .stat-value { margin-top: 12px; font-family: Georgia, serif; font-size: 32px; font-weight: 700; }
+    .stat-unit { margin-left: 5px; color: var(--ink-soft); font-family: inherit; font-size: 13px; font-weight: 500; }
+
+    .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { min-height: 350px; padding: 24px; border-radius: var(--radius); }
+    .panel-head { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 24px; }
+    .panel-sub { margin-top: 4px; color: var(--ink-soft); font-size: 12px; }
+
+    .chart { display: flex; flex-direction: column; gap: 18px; }
+    .bar-head { display: flex; justify-content: space-between; margin-bottom: 7px; font-size: 13px; }
+    .bar-head strong { font-size: 14px; }
+    .bar-track { height: 11px; overflow: hidden; border-radius: 999px; background: #e7ebe6; }
+    .bar-fill { height: 100%; min-width: 6px; border-radius: inherit; background: linear-gradient(90deg, var(--green), #79a991); transform-origin: left; animation: grow .55s ease both; }
+    @keyframes grow { from { transform: scaleX(0); } }
+
+    .records { display: flex; flex-direction: column; }
+    .record { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+    .record:last-child { border-bottom: 0; }
+    .subject-badge { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; color: var(--green); background: var(--mint); font-weight: 900; }
+    .record strong { display: block; font-size: 14px; }
+    .record small { color: var(--ink-soft); font-size: 11px; }
+    .record-meta { text-align: right; }
+    .record-meta b { display: block; font-size: 13px; }
+    .stars { color: #c08b37; font-size: 11px; letter-spacing: 1px; }
+    .empty { height: 230px; display: grid; place-items: center; text-align: center; color: var(--ink-soft); }
+    .empty-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 12px; border-radius: 18px; background: var(--mint); color: var(--green); font-size: 24px; }
+    .empty p { margin: 0; font-size: 13px; }
+    .toast { position: fixed; left: 50%; bottom: 24px; z-index: 10; transform: translate(-50%, 30px); padding: 11px 18px; color: #fff; border-radius: 999px; background: var(--ink); opacity: 0; pointer-events: none; transition: .28s; box-shadow: var(--shadow); font-size: 14px; }
+    .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    @media (max-width: 820px) {
+      .hero { grid-template-columns: 1fr; gap: 28px; }
+      .hero-copy { max-width: 650px; }
+      .content-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .shell { width: min(100% - 24px, 1160px); padding-top: 20px; }
+      header { margin-bottom: 30px; }
+      .brand small, .date-pill { display: none; }
+      h1 { font-size: 43px; }
+      .hero-copy { font-size: 15px; }
+      .entry-card { padding: 20px; border-radius: 22px; }
+      .stats { gap: 9px; }
+      .stat-card { padding: 15px 12px; }
+      .stat-top { font-size: 11px; }
+      .stat-icon { display: none; }
+      .stat-value { margin-top: 8px; font-size: 25px; }
+      .stat-unit { display: block; margin: 1px 0 0; font-size: 10px; }
+      .panel { padding: 19px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">跡</div>
+        <div><strong>讀書足跡</strong><small>STUDY TRACE</small></div>
+      </div>
+      <div class="date-pill" id="today"></div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow">讓每一次專注，都留下意義</div>
+        <h1>看見你的<br>學習軌跡。</h1>
+        <p class="hero-copy">用簡單的紀錄，累積踏實的成長。掌握各科投入與專注狀態，找到最適合自己的學習節奏。</p>
+      </div>
+
+      <form class="entry-card" id="studyForm">
+        <h2>新增今日紀錄</h2>
+        <p class="hint">完成一次學習後，花十秒留下足跡。</p>
+        <div class="field">
+          <label for="subject">科目</label>
+          <input id="subject" name="subject" type="text" placeholder="例如：數學、英文" maxlength="20" required autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="minutes">讀書分鐘數</label>
+          <input id="minutes" name="minutes" type="number" placeholder="例如：45" min="1" max="1440" required inputmode="numeric">
+        </div>
+        <fieldset class="field" style="border:0;padding:0;margin-inline:0">
+          <legend style="padding:0;margin-bottom:7px;font-size:13px;font-weight:700">專注程度</legend>
+          <div class="focus-row">
+            <input type="radio" name="focus" id="focus1" value="1"><label for="focus1">1</label>
+            <input type="radio" name="focus" id="focus2" value="2"><label for="focus2">2</label>
+            <input type="radio" name="focus" id="focus3" value="3" checked><label for="focus3">3</label>
+            <input type="radio" name="focus" id="focus4" value="4"><label for="focus4">4</label>
+            <input type="radio" name="focus" id="focus5" value="5"><label for="focus5">5</label>
+          </div>
+        </fieldset>
+        <button class="submit-btn" type="submit">＋ 加入讀書足跡</button>
+      </form>
+    </section>
+
+    <section class="stats" aria-label="學習統計">
+      <article class="stat-card"><div class="stat-top"><span>累積讀書時間</span><span class="stat-icon">時</span></div><div class="stat-value" id="totalTime">0<span class="stat-unit">小時 0 分</span></div></article>
+      <article class="stat-card"><div class="stat-top"><span>讀書次數</span><span class="stat-icon">次</span></div><div class="stat-value" id="totalSessions">0<span class="stat-unit">次紀錄</span></div></article>
+      <article class="stat-card"><div class="stat-top"><span>平均專注程度</span><span class="stat-icon">專</span></div><div class="stat-value" id="averageFocus">0.0<span class="stat-unit">／ 5.0</span></div></article>
+    </section>
+
+    <section class="content-grid">
+      <article class="panel">
+        <div class="panel-head"><div><h2>各科投入時間</h2><div class="panel-sub">依累積分鐘數排序</div></div></div>
+        <div class="chart" id="subjectChart"></div>
+      </article>
+      <article class="panel">
+        <div class="panel-head"><div><h2>最近讀書紀錄</h2><div class="panel-sub">顯示最近六筆足跡</div></div></div>
+        <div class="records" id="recentRecords"></div>
+      </article>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite">已新增一筆讀書足跡</div>
+
+  <script>
+    const STORAGE_KEY = 'studyTraceRecords';
+    const form = document.getElementById('studyForm');
+    const records = loadRecords();
+
+    document.getElementById('today').textContent = new Intl.DateTimeFormat('zh-TW', {
+      year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'
+    }).format(new Date());
+
+    function loadRecords() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        return Array.isArray(data) ? data : [];
+      } catch { return []; }
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+    }
+
+    function formatDuration(minutes) {
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return hours ? `${hours} 小時${mins ? ` ${mins} 分` : ''}` : `${mins} 分鐘`;
+    }
+
+    function render() {
+      const totalMinutes = records.reduce((sum, item) => sum + item.minutes, 0);
+      const avgFocus = records.length ? records.reduce((sum, item) => sum + item.focus, 0) / records.length : 0;
+      document.getElementById('totalTime').innerHTML = `${Math.floor(totalMinutes / 60)}<span class="stat-unit">小時 ${totalMinutes % 60} 分</span>`;
+      document.getElementById('totalSessions').innerHTML = `${records.length}<span class="stat-unit">次紀錄</span>`;
+      document.getElementById('averageFocus').innerHTML = `${avgFocus.toFixed(1)}<span class="stat-unit">／ 5.0</span>`;
+      renderChart();
+      renderRecent();
+    }
+
+    function renderChart() {
+      const chart = document.getElementById('subjectChart');
+      const totals = records.reduce((map, item) => {
+        map[item.subject] = (map[item.subject] || 0) + item.minutes;
+        return map;
+      }, {});
+      const subjects = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+      if (!subjects.length) {
+        chart.innerHTML = '<div class="empty"><div><div class="empty-mark">▥</div><p>新增第一筆紀錄後<br>這裡會顯示各科投入比例</p></div></div>';
+        return;
+      }
+      const max = subjects[0][1];
+      chart.innerHTML = subjects.map(([subject, minutes]) => `
+        <div class="bar-item"><div class="bar-head"><strong>${escapeHtml(subject)}</strong><span>${formatDuration(minutes)}</span></div>
+        <div class="bar-track" role="img" aria-label="${escapeHtml(subject)} ${minutes} 分鐘"><div class="bar-fill" style="width:${minutes / max * 100}%"></div></div></div>
+      `).join('');
+    }
+
+    function renderRecent() {
+      const list = document.getElementById('recentRecords');
+      if (!records.length) {
+        list.innerHTML = '<div class="empty"><div><div class="empty-mark">✦</div><p>你的學習足跡將從這裡開始</p></div></div>';
+        return;
+      }
+      list.innerHTML = records.slice(0, 6).map(item => {
+        const date = new Intl.DateTimeFormat('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(item.createdAt));
+        return `<div class="record"><div class="subject-badge">${escapeHtml(item.subject.slice(0, 1))}</div><div><strong>${escapeHtml(item.subject)}</strong><small>${date}</small></div><div class="record-meta"><b>${item.minutes} 分鐘</b><span class="stars" aria-label="專注程度 ${item.focus} 分">${'★'.repeat(item.focus)}${'☆'.repeat(5-item.focus)}</span></div></div>`;
+      }).join('');
+    }
+
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const data = new FormData(form);
+      const subject = data.get('subject').trim();
+      const minutes = Number(data.get('minutes'));
+      const focus = Number(data.get('focus'));
+      if (!subject || !Number.isInteger(minutes) || minutes < 1 || minutes > 1440 || focus < 1 || focus > 5) return;
+      records.unshift({ id: Date.now(), subject, minutes, focus, createdAt: new Date().toISOString() });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+      form.reset();
+      document.getElementById('focus3').checked = true;
+      render();
+      const toast = document.getElementById('toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2200);
+      document.getElementById('subject').focus();
+    });
+
+    render();
+  </script>
+</body>
+</html>
